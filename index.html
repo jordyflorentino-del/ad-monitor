@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Archivo de Anuncios — Averix</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --paper:#ffffff;
+    --paper-soft:#f4f8f5;
+    --ink:#0f1f1a;
+    --ink-soft:#5b6b62;
+    --line:#e1e8e3;
+    --accent:#59e145;
+    --accent-deep:#39a82b;
+    --accent-wash:rgba(89,225,69,0.12);
+    --inactive:#c1440e;
+    --inactive-wash:rgba(193,68,14,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    padding:0 0 100px;
+  }
+  .wrap{max-width:1100px;margin:0 auto;padding:0 24px;}
+
+  /* ---- header ---- */
+  .topbar{
+    background:var(--ink);
+    color:var(--paper);
+    padding:10px 0;
+    margin-bottom:0;
+  }
+  .topbar .wrap{display:flex;align-items:center;gap:8px;}
+  .logo-mark{
+    width:8px;height:8px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-wash);
+  }
+  .logo-text{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.16em;
+    text-transform:uppercase;color:var(--paper);
+  }
+  .logo-text b{color:var(--accent);}
+
+  header.hero{
+    border-bottom:3px solid var(--ink);
+    padding:36px 0 22px;
+    margin-bottom:28px;
+    position:relative;
+  }
+  header.hero::after{
+    content:'';position:absolute;bottom:-3px;left:0;width:64px;height:3px;background:var(--accent);
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:700;
+    font-size:clamp(28px,4vw,38px);
+    margin:0 0 8px;
+    letter-spacing:-0.01em;
+  }
+  .sub{color:var(--ink-soft);font-size:14.5px;max-width:580px;line-height:1.5;}
+
+  /* ---- panels ---- */
+  .panel{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:22px;
+    margin-bottom:22px;
+  }
+  .panel-title{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.1em;
+    color:var(--ink-soft);
+    margin-bottom:16px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .panel-title::before{content:'';width:16px;height:2px;background:var(--accent);}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;}
+  label{
+    display:block;
+    font-size:11px;
+    font-family:'IBM Plex Mono',monospace;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  input,select{
+    width:100%;
+    padding:10px 11px;
+    border:1px solid var(--line);
+    background:var(--paper-soft);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    border-radius:3px;
+  }
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;}
+
+  .row{display:flex;gap:12px;align-items:center;margin-top:18px;flex-wrap:wrap;}
+  button{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    padding:12px 22px;
+    border:2px solid var(--ink);
+    background:var(--accent);
+    color:var(--ink);
+    cursor:pointer;
+    border-radius:3px;
+    transition:transform .12s, background .12s;
+  }
+  button:hover{background:var(--accent-deep);transform:translateY(-1px);}
+  button.secondary{background:var(--paper);color:var(--ink);}
+  button.secondary:hover{background:var(--paper-soft);}
+  button:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+
+  .status-line{font-size:13px;color:var(--ink-soft);margin-top:12px;font-family:'IBM Plex Mono',monospace;}
+  .status-line.err{color:var(--inactive);}
+
+  .count-bar{
+    display:flex;justify-content:space-between;align-items:center;
+    font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-soft);
+    margin-bottom:16px;border-bottom:1px solid var(--line);padding-bottom:12px;
+  }
+
+  /* ---- cards ---- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px;}
+  .card{
+    background:var(--paper);border:1px solid var(--line);border-radius:3px;
+    padding:0;display:flex;flex-direction:column;overflow:hidden;
+    transition:box-shadow .15s;
+  }
+  .card:hover{box-shadow:0 4px 18px rgba(15,31,26,0.08);}
+  .card-tab{
+    height:4px;background:var(--line);
+  }
+  .card-tab.active{background:var(--accent);}
+  .card-tab.inactive{background:var(--inactive);}
+  .card-body{padding:16px;display:flex;flex-direction:column;gap:10px;}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .advertiser{font-family:'Fraunces',serif;font-size:17px;font-weight:600;line-height:1.2;}
+  .badge{
+    font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;
+    letter-spacing:0.06em;padding:3px 8px;border-radius:2px;white-space:nowrap;flex-shrink:0;
+  }
+  .badge.active{background:var(--accent-wash);color:var(--accent-deep);}
+  .badge.inactive{background:var(--inactive-wash);color:var(--inactive);}
+  .creative-thumb{
+    width:100%;height:150px;object-fit:cover;background:var(--paper-soft);
+  }
+  .creative-text{font-size:13.5px;line-height:1.5;color:var(--ink);max-height:100px;overflow-y:auto;}
+  .creative-title{font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  .meta-row{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);
+    display:flex;flex-wrap:wrap;gap:6px 10px;border-top:1px dashed var(--line);padding-top:8px;
+  }
+  .platforms{display:flex;gap:5px;flex-wrap:wrap;}
+  .plat-tag{
+    background:var(--paper-soft);border:1px solid var(--line);padding:2px 7px;border-radius:2px;
+    font-size:10px;font-family:'IBM Plex Mono',monospace;
+  }
+  .snap-link{font-size:12px;color:var(--accent-deep);text-decoration:none;border-bottom:1px solid var(--accent-deep);align-self:flex-start;}
+
+  .analysis-out{
+    font-size:14.5px;line-height:1.65;white-space:pre-wrap;
+    border-top:1px solid var(--line);margin-top:18px;padding-top:18px;
+  }
+  .empty{color:var(--ink-soft);font-size:14px;padding:40px 0;text-align:center;}
+
+  ::-webkit-scrollbar{width:6px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);}
+
+  @media (max-width:520px){
+    .grid{grid-template-columns:1fr;}
+    header.hero{padding:28px 0 18px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="logo-mark"></div>
+    <div class="logo-text">Averix <b>·</b> Ad Monitor</div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <h1>Archivo de Anuncios</h1>
+    <div class="sub">Extrae, muestra y analiza los anuncios activos de la competencia — creativos, texto, fechas, estado y plataformas, con análisis estratégico integrado.</div>
+  </header>
+
+  <div class="panel">
+    <div class="panel-title">Búsqueda</div>
+    <div class="grid">
+      <div>
+        <label for="searchTerm">Anunciante o palabra clave</label>
+        <input type="text" id="searchTerm" placeholder="ej. nombre de marca competidora">
+      </div>
+      <div>
+        <label for="country">País</label>
+        <select id="country">
+          <option value="MX">México</option>
+          <option value="ES">España</option>
+          <option value="US">Estados Unidos</option>
+          <option value="DE">Alemania</option>
+          <option value="FR">Francia</option>
+          <option value="AR">Argentina</option>
+          <option value="CO">Colombia</option>
+        </select>
+      </div>
+      <div>
+        <label for="activeStatus">Estado</label>
+        <select id="activeStatus">
+          <option value="active">Activos</option>
+          <option value="inactive">Inactivos</option>
+          <option value="all">Todos</option>
+        </select>
+      </div>
+      <div>
+        <label for="maxAds">Cantidad máxima</label>
+        <select id="maxAds">
+          <option value="25">25</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <button id="searchBtn" onclick="runSearch()">Buscar anuncios</button>
+      <button class="secondary" id="analyzeBtn" onclick="analyzeWithClaude()" disabled>Analizar con Claude</button>
+    </div>
+    <div class="status-line" id="statusLine"></div>
+  </div>
+
+  <div class="panel" id="resultsPanel" style="display:none;">
+    <div class="count-bar">
+      <span id="countText"></span>
+      <span id="queryText"></span>
+    </div>
+    <div class="cards" id="cards"></div>
+    <div id="analysisBlock"></div>
+  </div>
+
+  <div class="empty" id="emptyState">Busca un anunciante o palabra clave para comenzar.</div>
+
+</div>
+
+<script>
+let currentAds = [];
+let lastQueryLabel = '';
+
+function esc(s){
+  if(!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+function fmtDate(iso){ return iso ? iso.slice(0,10) : '—'; }
+
+async function runSearch(){
+  const term = document.getElementById('searchTerm').value.trim();
+  const country = document.getElementById('country').value;
+  const activeStatus = document.getElementById('activeStatus').value;
+  const maxAds = document.getElementById('maxAds').value;
+  const statusLine = document.getElementById('statusLine');
+  const searchBtn = document.getElementById('searchBtn');
+
+  if(!term){ statusLine.className='status-line err'; statusLine.textContent = 'Escribe un anunciante o palabra clave.'; return; }
+
+  searchBtn.disabled = true;
+  statusLine.className = 'status-line';
+  statusLine.textContent = 'Buscando anuncios — puede tardar 15-40 segundos…';
+  document.getElementById('emptyState').style.display = 'none';
+
+  try{
+    const res = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ term, country, status: activeStatus, maxAds })
+    });
+    const data = await res.json();
+
+    if(!res.ok){
+      statusLine.className = 'status-line err';
+      statusLine.textContent = data.error || 'Error al buscar anuncios.';
+      searchBtn.disabled = false;
+      return;
+    }
+
+    currentAds = data.ads || [];
+    lastQueryLabel = `"${term}" · ${country} · ${activeStatus}`;
+    renderResults();
+    statusLine.textContent = `Listo — ${currentAds.length} anuncios extraídos.`;
+    document.getElementById('analyzeBtn').disabled = currentAds.length === 0;
+
+  }catch(e){
+    statusLine.className = 'status-line err';
+    statusLine.textContent = 'No se pudo conectar con el servidor: ' + e.message;
+  }
+  searchBtn.disabled = false;
+}
+
+function renderResults(){
+  const panel = document.getElementById('resultsPanel');
+  const cards = document.getElementById('cards');
+  panel.style.display = 'block';
+  cards.innerHTML = '';
+
+  document.getElementById('countText').textContent = `${currentAds.length} anuncios`;
+  document.getElementById('queryText').textContent = lastQueryLabel;
+
+  if(currentAds.length === 0){
+    cards.innerHTML = '<div class="empty">Sin resultados para esta búsqueda.</div>';
+    return;
+  }
+
+  currentAds.forEach(ad => {
+    const page = ad.page || {};
+    const content = ad.content || {};
+    const media = ad.media || {};
+    const targeting = ad.targeting || {};
+    const isActive = !!targeting.is_active;
+    const platforms = targeting.platform || [];
+    const thumb = (media.media_urls && media.media_urls[0]) || null;
+    const snapUrl = ad.ad_archive_id ? `https://www.facebook.com/ads/library/?id=${ad.ad_archive_id}` : null;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-tab ${isActive ? 'active' : 'inactive'}"></div>
+      <div class="card-body">
+        ${thumb ? `<img class="creative-thumb" src="${thumb}" loading="lazy" alt="Creativo del anuncio">` : ''}
+        <div class="card-top">
+          <div class="advertiser">${esc(page.name || 'Anunciante desconocido')}</div>
+          <span class="badge ${isActive ? 'active' : 'inactive'}">${isActive ? 'Activo' : 'Inactivo'}</span>
+        </div>
+        ${content.title ? `<div class="creative-title">${esc(content.title)}</div>` : ''}
+        <div class="creative-text">${esc(content.ad_text || '(sin texto de anuncio disponible)')}</div>
+        <div class="meta-row">
+          <span>Inicio: ${fmtDate(targeting.start_date)}</span>
+          <span>${targeting.end_date ? 'Fin: ' + fmtDate(targeting.end_date) : ''}</span>
+        </div>
+        <div class="platforms">
+          ${platforms.map(p => `<span class="plat-tag">${esc(p)}</span>`).join('')}
+        </div>
+        ${snapUrl ? `<a class="snap-link" href="${snapUrl}" target="_blank" rel="noopener">Ver anuncio original ↗</a>` : ''}
+      </div>
+    `;
+    cards.appendChild(card);
+  });
+
+  panel.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+async function analyzeWithClaude(){
+  const analyzeBtn = document.getElementById('analyzeBtn');
+  const block = document.getElementById('analysisBlock');
+  analyzeBtn.disabled = true;
+  analyzeBtn.textContent = 'Analizando…';
+
+  try{
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ads: currentAds, queryLabel: lastQueryLabel })
+    });
+    const data = await res.json();
+
+    if(!res.ok){
+      block.innerHTML = `<div class="analysis-out">${esc(data.error || 'No se pudo completar el análisis.')}</div>`;
+    }else{
+      block.innerHTML = `<div class="analysis-out">${esc(data.text || 'Sin respuesta del modelo.')}</div>`;
+    }
+    block.scrollIntoView({behavior:'smooth', block:'end'});
+  }catch(e){
+    block.innerHTML = `<div class="analysis-out">No se pudo completar el análisis: ${esc(e.message)}</div>`;
+  }
+
+  analyzeBtn.disabled = false;
+  analyzeBtn.textContent = 'Analizar con Claude';
+}
+</script>
+</body>
+</html>
