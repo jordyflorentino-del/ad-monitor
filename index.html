@@ -5,26 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Archivo de Anuncios — Averix</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
   :root{
     --paper:#ffffff;
-    --paper-soft:#f4f8f5;
-    --ink:#0f1f1a;
-    --ink-soft:#5b6b62;
-    --line:#e1e8e3;
-    --accent:#59e145;
-    --accent-deep:#39a82b;
-    --accent-wash:rgba(89,225,69,0.12);
-    --inactive:#c1440e;
-    --inactive-wash:rgba(193,68,14,0.10);
+    --paper-soft:#f3f5f8;
+    --ink:#151a22;
+    --ink-soft:#5c6472;
+    --line:#e2e5ea;
+    --accent:#1c3a63;
+    --accent-deep:#0f2340;
+    --accent-wash:rgba(28,58,99,0.10);
+    --inactive:#b34331;
+    --inactive-wash:rgba(179,67,49,0.10);
   }
   *{box-sizing:border-box;}
   body{
     margin:0;
     background:var(--paper);
     color:var(--ink);
-    font-family:'Inter',sans-serif;
+    font-family:'Poppins',sans-serif;
     padding:0 0 100px;
   }
   .wrap{max-width:1100px;margin:0 auto;padding:0 24px;}
@@ -57,7 +57,7 @@
     content:'';position:absolute;bottom:-3px;left:0;width:64px;height:3px;background:var(--accent);
   }
   h1{
-    font-family:'Fraunces',serif;
+    font-family:'Poppins',sans-serif;
     font-weight:700;
     font-size:clamp(28px,4vw,38px);
     margin:0 0 8px;
@@ -102,7 +102,7 @@
     border:1px solid var(--line);
     background:var(--paper-soft);
     color:var(--ink);
-    font-family:'Inter',sans-serif;
+    font-family:'Poppins',sans-serif;
     font-size:14px;
     border-radius:3px;
   }
@@ -152,7 +152,7 @@
   .card-tab.inactive{background:var(--inactive);}
   .card-body{padding:16px;display:flex;flex-direction:column;gap:10px;}
   .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
-  .advertiser{font-family:'Fraunces',serif;font-size:17px;font-weight:600;line-height:1.2;}
+  .advertiser{font-family:'Poppins',sans-serif;font-size:17px;font-weight:600;line-height:1.2;}
   .badge{
     font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;
     letter-spacing:0.06em;padding:3px 8px;border-radius:2px;white-space:nowrap;flex-shrink:0;
@@ -245,9 +245,10 @@
     </div>
     <div class="row">
       <button id="searchBtn" onclick="runSearch()">Buscar anuncios</button>
-      <button class="secondary" id="analyzeBtn" onclick="analyzeWithClaude()" disabled>Analizar con Claude</button>
+      <button class="secondary" id="analyzeBtn" onclick="copyForClaude()" disabled>Copiar para Claude</button>
     </div>
     <div class="status-line" id="statusLine"></div>
+    <div class="hint" id="copyHint" style="display:none;font-size:12px;color:var(--ink-soft);margin-top:6px;">Pégalo en una conversación de Claude.ai para el análisis — sin costo adicional.</div>
   </div>
 
   <div class="panel" id="resultsPanel" style="display:none;">
@@ -370,32 +371,44 @@ function renderResults(){
   panel.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
-async function analyzeWithClaude(){
+async function copyForClaude(){
   const analyzeBtn = document.getElementById('analyzeBtn');
-  const block = document.getElementById('analysisBlock');
-  analyzeBtn.disabled = true;
-  analyzeBtn.textContent = 'Analizando…';
+  const copyHint = document.getElementById('copyHint');
+
+  const sample = currentAds.slice(0, 30).map(ad => ({
+    anunciante: ad.page && ad.page.name,
+    texto: ad.content && ad.content.ad_text,
+    titulo: ad.content && ad.content.title,
+    cta: ad.content && ad.content.cta_text,
+    inicio: ad.targeting && ad.targeting.start_date,
+    fin: ad.targeting && ad.targeting.end_date,
+    activo: ad.targeting && ad.targeting.is_active,
+    plataformas: ad.targeting && ad.targeting.platform
+  }));
+
+  const prompt = `Eres un estratega de marketing digital analizando anuncios extraídos de la Meta Ad Library para: ${lastQueryLabel}.
+
+Aquí están los datos de ${sample.length} anuncios en JSON:
+${JSON.stringify(sample, null, 2)}
+
+Da un análisis en español, directo y accionable, con estas secciones:
+1. Patrones de mensaje/ángulos creativos que se repiten
+2. Ganchos, ofertas y CTAs más usados
+3. Plataformas priorizadas (Facebook, Instagram, etc.) y qué sugiere eso
+4. Actividad (¿están escalando, pausando, probando muchas variantes?)
+5. 3 recomendaciones concretas para diferenciarse de esta competencia
+
+Sé específico citando ejemplos del texto cuando sea relevante. Evita generalidades vacías.`;
 
   try{
-    const res = await fetch('/api/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ads: currentAds, queryLabel: lastQueryLabel })
-    });
-    const data = await res.json();
-
-    if(!res.ok){
-      block.innerHTML = `<div class="analysis-out">${esc(data.error || 'No se pudo completar el análisis.')}</div>`;
-    }else{
-      block.innerHTML = `<div class="analysis-out">${esc(data.text || 'Sin respuesta del modelo.')}</div>`;
-    }
-    block.scrollIntoView({behavior:'smooth', block:'end'});
+    await navigator.clipboard.writeText(prompt);
+    analyzeBtn.textContent = '✓ Copiado';
+    copyHint.style.display = 'block';
+    setTimeout(() => { analyzeBtn.textContent = 'Copiar para Claude'; }, 2500);
   }catch(e){
-    block.innerHTML = `<div class="analysis-out">No se pudo completar el análisis: ${esc(e.message)}</div>`;
+    analyzeBtn.textContent = 'No se pudo copiar';
+    setTimeout(() => { analyzeBtn.textContent = 'Copiar para Claude'; }, 2500);
   }
-
-  analyzeBtn.disabled = false;
-  analyzeBtn.textContent = 'Analizar con Claude';
 }
 </script>
 </body>
