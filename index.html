@@ -176,9 +176,59 @@
   .snap-link{font-size:12px;color:var(--accent-deep);text-decoration:none;border-bottom:1px solid var(--accent-deep);align-self:flex-start;}
 
   .analysis-out{
-    font-size:14.5px;line-height:1.65;white-space:pre-wrap;
-    border-top:1px solid var(--line);margin-top:18px;padding-top:18px;
+    font-size:14.5px;line-height:1.7;color:var(--ink);
+    border-top:1px solid var(--line);margin-top:22px;padding-top:22px;
   }
+  .analysis-out h2{
+    font-family:'Poppins',sans-serif;font-size:16px;font-weight:600;
+    margin:26px 0 12px;padding-left:12px;border-left:3px solid var(--accent);
+    color:var(--accent-deep);
+  }
+  .analysis-out h2:first-child{margin-top:0;}
+  .analysis-out p{margin:0 0 12px;}
+  .analysis-out strong{color:var(--ink);font-weight:600;}
+  .analysis-out ul{margin:0 0 14px;padding-left:20px;}
+  .analysis-out li{margin-bottom:6px;}
+  .analysis-out code{
+    background:var(--paper-soft);padding:1px 5px;border-radius:2px;
+    font-family:'IBM Plex Mono',monospace;font-size:12.5px;
+  }
+
+  .analysis-meta{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);
+    margin-bottom:8px;
+  }
+
+  /* ---- concept mockup ---- */
+  .concept-wrap{
+    margin-top:28px;padding-top:24px;border-top:1px solid var(--line);
+  }
+  .concept-label{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;
+    letter-spacing:0.1em;color:var(--ink-soft);margin-bottom:4px;display:flex;align-items:center;gap:8px;
+  }
+  .concept-label::before{content:'';width:16px;height:2px;background:var(--accent);}
+  .concept-caption{font-size:12.5px;color:var(--ink-soft);margin-bottom:16px;max-width:520px;}
+  .mockup-card{
+    max-width:420px;border-radius:6px;overflow:hidden;
+    border:1px solid var(--line);box-shadow:0 8px 28px rgba(15,26,34,0.10);
+  }
+  .mockup-visual{
+    padding:34px 26px;display:flex;flex-direction:column;gap:14px;min-height:170px;justify-content:center;
+  }
+  .mockup-headline{font-family:'Poppins',sans-serif;font-weight:700;font-size:22px;line-height:1.25;}
+  .mockup-sub{font-family:'Poppins',sans-serif;font-size:13.5px;line-height:1.4;opacity:0.92;max-width:320px;}
+  .mockup-cta{
+    align-self:flex-start;font-family:'Poppins',sans-serif;font-weight:600;font-size:12.5px;
+    padding:9px 18px;border-radius:22px;margin-top:4px;
+  }
+  .mockup-footer{
+    background:var(--paper);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;
+    border-top:1px solid var(--line);
+  }
+  .swatches{display:flex;gap:8px;}
+  .swatch{width:22px;height:22px;border-radius:50%;border:2px solid var(--paper);box-shadow:0 0 0 1px var(--line);}
+  .mockup-note{font-size:11px;color:var(--ink-soft);font-style:italic;padding:10px 16px 0;max-width:420px;}
   .empty{color:var(--ink-soft);font-size:14px;padding:40px 0;text-align:center;}
 
   ::-webkit-scrollbar{width:6px;}
@@ -370,6 +420,48 @@ function renderResults(){
   panel.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
+function relativeLuminance(hex){
+  const c = hex.replace('#','');
+  const r = parseInt(c.substr(0,2),16)/255, g = parseInt(c.substr(2,2),16)/255, b = parseInt(c.substr(4,2),16)/255;
+  const f = v => v <= 0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4);
+  return 0.2126*f(r) + 0.7152*f(g) + 0.0722*f(b);
+}
+function contrastText(hex){
+  try{ return relativeLuminance(hex) > 0.45 ? '#151a22' : '#ffffff'; }catch(e){ return '#ffffff'; }
+}
+
+function renderConcept(concept){
+  if(!concept || !concept.colors || concept.colors.length === 0) return '';
+
+  const colors = concept.colors.slice(0,4);
+  const bg = colors[0].hex;
+  const ctaColor = colors[1] ? colors[1].hex : colors[0].hex;
+  const textColor = contrastText(bg);
+  const ctaTextColor = contrastText(ctaColor);
+  const gradientEnd = colors[1] ? colors[1].hex : bg;
+
+  return `
+    <div class="concept-wrap">
+      <div class="concept-label">Prototipo de concepto</div>
+      <div class="concept-caption">Construido con los colores y patrones detectados en los creativos de la competencia — no es una imagen generada por IA, es un mockup real armado con esos datos.</div>
+      <div class="mockup-card">
+        <div class="mockup-visual" style="background:linear-gradient(135deg, ${esc(bg)}, ${esc(gradientEnd)}); color:${textColor};">
+          <div class="mockup-headline">${esc(concept.concept_headline || '')}</div>
+          <div class="mockup-sub">${esc(concept.concept_subheadline || '')}</div>
+          <div class="mockup-cta" style="background:${esc(ctaColor)};color:${ctaTextColor};">${esc(concept.concept_cta || 'Ver más')}</div>
+        </div>
+        <div class="mockup-footer">
+          <div class="swatches">
+            ${colors.map(c => `<div class="swatch" style="background:${esc(c.hex)};" title="${esc(c.name || c.hex)}"></div>`).join('')}
+          </div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink-soft);">${colors.map(c=>esc(c.hex)).join(' · ')}</span>
+        </div>
+      </div>
+      ${concept.concept_style_notes ? `<div class="mockup-note">${esc(concept.concept_style_notes)}</div>` : ''}
+    </div>
+  `;
+}
+
 async function analyzeAds(){
   const analyzeBtn = document.getElementById('analyzeBtn');
   const block = document.getElementById('analysisBlock');
@@ -387,7 +479,10 @@ async function analyzeAds(){
     if(!res.ok){
       block.innerHTML = `<div class="analysis-out">${esc(data.error || 'No se pudo completar el análisis.')}</div>`;
     }else{
-      block.innerHTML = `<div class="analysis-out">${esc(data.text || 'Sin respuesta del modelo.')}</div>`;
+      const rawHtml = marked.parse(data.text || 'Sin respuesta del modelo.');
+      const cleanHtml = DOMPurify.sanitize(rawHtml);
+      const metaLine = data.modelUsed ? `<div class="analysis-meta">Modelo: ${esc(data.modelUsed)} · ${data.imagesAnalyzed || 0} creativos analizados visualmente</div>` : '';
+      block.innerHTML = `<div class="analysis-out">${metaLine}${cleanHtml}${renderConcept(data.concept)}</div>`;
     }
     block.scrollIntoView({behavior:'smooth', block:'end'});
   }catch(e){
@@ -395,8 +490,10 @@ async function analyzeAds(){
   }
 
   analyzeBtn.disabled = false;
-  analyzeBtn.textContent = 'Analizar con IA';
+  analyzeBtn.textContent = 'Analizar texto + imágenes con IA';
 }
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 </body>
 </html>
