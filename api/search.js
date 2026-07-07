@@ -12,17 +12,27 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const { term, country, status, maxAds } = req.body || {};
-  if (!term) {
-    res.status(400).json({ error: 'Falta el término de búsqueda.' });
-    return;
-  }
+  const { term, pageUrl, country, status, maxAds } = req.body || {};
 
   const safeCountry = country || 'MX';
   const safeStatus = status || 'active';
   const safeMax = Math.min(parseInt(maxAds, 10) || 50, 500);
 
-  const adsLibraryUrl = `https://www.facebook.com/ads/library/?active_status=${safeStatus}&ad_type=all&country=${safeCountry}&q=${encodeURIComponent(term)}&search_type=keyword_unordered&media_type=all`;
+  let seedUrl;
+
+  if (pageUrl && pageUrl.trim()) {
+    // Exact-page mode: user pasted a specific Facebook Page URL to avoid ambiguity between similarly-named companies.
+    let cleanUrl = pageUrl.trim();
+    if (!/^https?:\/\//i.test(cleanUrl)) {
+      cleanUrl = `https://www.facebook.com/${cleanUrl.replace(/^\/+/, '')}`;
+    }
+    seedUrl = cleanUrl;
+  } else if (term && term.trim()) {
+    seedUrl = `https://www.facebook.com/ads/library/?active_status=${safeStatus}&ad_type=all&country=${safeCountry}&q=${encodeURIComponent(term)}&search_type=keyword_unordered&media_type=all`;
+  } else {
+    res.status(400).json({ error: 'Escribe una palabra clave o pega la URL exacta de la página.' });
+    return;
+  }
 
   try {
     const apifyRes = await fetch(
@@ -30,7 +40,7 @@ module.exports = async function handler(req, res) {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: [adsLibraryUrl], status: safeStatus, maxAds: safeMax })
+        body: JSON.stringify({ urls: [seedUrl], status: safeStatus, maxAds: safeMax })
       }
     );
 
