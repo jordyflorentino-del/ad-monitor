@@ -258,6 +258,12 @@
 
   <div class="panel">
     <div class="panel-title">Búsqueda</div>
+    <div class="grid" style="grid-template-columns:1fr;margin-bottom:14px;">
+      <div>
+        <label for="pageUrl">URL exacta de la página (opcional — evita confundir marcas con nombres similares)</label>
+        <input type="text" id="pageUrl" placeholder="ej. facebook.com/SkyEnergySystemsMX — cópiala del desplegable de sugerencias en facebook.com/ads/library">
+      </div>
+    </div>
     <div class="grid">
       <div>
         <label for="searchTerm">Anunciante o palabra clave</label>
@@ -327,13 +333,14 @@ function fmtDate(iso){ return iso ? iso.slice(0,10) : '—'; }
 
 async function runSearch(){
   const term = document.getElementById('searchTerm').value.trim();
+  const pageUrl = document.getElementById('pageUrl').value.trim();
   const country = document.getElementById('country').value;
   const activeStatus = document.getElementById('activeStatus').value;
   const maxAds = document.getElementById('maxAds').value;
   const statusLine = document.getElementById('statusLine');
   const searchBtn = document.getElementById('searchBtn');
 
-  if(!term){ statusLine.className='status-line err'; statusLine.textContent = 'Escribe un anunciante o palabra clave.'; return; }
+  if(!term && !pageUrl){ statusLine.className='status-line err'; statusLine.textContent = 'Escribe un anunciante/palabra clave o pega la URL exacta de la página.'; return; }
 
   searchBtn.disabled = true;
   statusLine.className = 'status-line';
@@ -344,7 +351,7 @@ async function runSearch(){
     const res = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ term, country, status: activeStatus, maxAds })
+      body: JSON.stringify({ term, pageUrl, country, status: activeStatus, maxAds })
     });
     const data = await res.json();
 
@@ -356,7 +363,7 @@ async function runSearch(){
     }
 
     currentAds = data.ads || [];
-    lastQueryLabel = `"${term}" · ${country} · ${activeStatus}`;
+    lastQueryLabel = pageUrl ? `Página exacta: ${pageUrl} · ${activeStatus}` : `"${term}" · ${country} · ${activeStatus}`;
     renderResults();
     statusLine.textContent = `Listo — ${currentAds.length} anuncios extraídos.`;
     document.getElementById('analyzeBtn').disabled = currentAds.length === 0;
