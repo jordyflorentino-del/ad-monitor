@@ -1,7 +1,6 @@
 const MAX_TEXT_ADS = 30;
 const MAX_IMAGE_ADS = 8;
 
-// Try these in order — if one is overloaded (503) or rate-limited (429), fall back to the next.
 const MODEL_CHAIN = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -16,6 +15,18 @@ async function fetchImageAsInlineData(url) {
     return { mimeType: contentType.split(';')[0], data: base64 };
   } catch (e) {
     return null;
+  }
+}
+
+function extractConceptJson(rawText) {
+  const match = rawText.match(/```json\s*([\s\S]*?)```/i);
+  if (!match) return { narrative: rawText.trim(), concept: null };
+  const narrative = rawText.replace(match[0], '').trim();
+  try {
+    const concept = JSON.parse(match[1]);
+    return { narrative, concept };
+  } catch (e) {
+    return { narrative, concept: null };
   }
 }
 
@@ -46,8 +57,6 @@ async function callGeminiWithFallback(apiKey, parts) {
         }
 
         lastMessage = (data.error && data.error.message) || `Error ${response.status} en ${model}`;
-
-        // Overloaded or rate-limited: worth retrying / falling back. Anything else is likely a real error (bad key, bad request) — stop immediately.
         if (response.status === 503 || response.status === 429) {
           await sleep(1200 * (attempt + 1));
           continue;
@@ -59,9 +68,7 @@ async function callGeminiWithFallback(apiKey, parts) {
         await sleep(800);
       }
     }
-    // exhausted retries on this model, move to the next one in the chain
   }
-
   return { error: `Todos los modelos de Gemini están saturados ahora mismo (${lastMessage}). Intenta de nuevo en un par de minutos.` };
 }
 
@@ -99,24 +106,36 @@ module.exports = async function handler(req, res) {
     adsWithImages.map(ad => fetchImageAsInlineData(ad.media.media_urls[0]))
   );
 
-  const promptIntro = `Eres un estratega de marketing digital analizando anuncios extraídos de la Meta Ad Library para: ${queryLabel || 'la búsqueda actual'}.
+  const promptIntro = `Eres un estratega de marketing digital y director creativo analizando anuncios extraídos de la Meta Ad Library para: ${queryLabel || 'la búsqueda actual'}.
 
 Aquí están los datos de ${sample.length} anuncios en JSON (texto, fechas, estado, plataformas):
 ${JSON.stringify(sample, null, 2)}
 
-También te comparto ${imageResults.filter(Boolean).length} imágenes/creativos reales de algunos de estos anuncios (en el mismo orden en que aparecen a continuación) para que analices el mensaje visual, el texto incrustado en la imagen, estilo y colores.
+También te comparto ${imageResults.filter(Boolean).length} imágenes/creativos reales de algunos de estos anuncios para que analices el mensaje visual, el texto incrustado en la imagen, estilo y colores.
 
-IMPORTANTE sobre límites de los datos: esta información viene de la Ad Library pública de Meta, NO incluye métricas de rendimiento (clics, CTR, gasto, conversiones). Cuando hables de "qué está funcionando", acláralo explícitamente como una INFERENCIA basada en señales indirectas (tiempo que lleva activo el anuncio, cantidad de variantes similares corriendo en paralelo, mensajes repetidos) — nunca lo presentes como dato confirmado de rendimiento real.
+IMPORTANTE sobre límites de los datos: esta información viene de la Ad Library pública de Meta, NO incluye métricas de rendimiento (clics, CTR, gasto, conversiones). Cuando hables de "qué está funcionando", acláralo explícitamente como una INFERENCIA basada en señales indirectas (tiempo activo, cantidad de variantes similares, mensajes repetidos) — nunca como dato confirmado.
 
-Da un análisis en español, directo y accionable, con estas secciones:
-1. Patrones de mensaje/ángulos creativos que se repiten (texto Y visual)
-2. Qué comunican las imágenes/creativos: estilo, ganchos visuales, texto incrustado
-3. Ganchos, ofertas y CTAs más usados
-4. Plataformas priorizadas y qué sugiere eso
-5. Señales indirectas de qué podría estar funcionando (con la aclaración de que es inferencia, no dato confirmado)
-6. 3 recomendaciones concretas para diferenciarse de esta competencia
+Escribe el análisis en español, en formato Markdown, usando ## para cada sección (no uses # de nivel 1), con estas secciones:
+## Patrones de mensaje
+## Qué comunican los creativos visuales
+## Ganchos, ofertas y CTAs
+## Plataformas y qué sugiere
+## Señales indirectas de qué podría estar funcionando
+## Recomendaciones para diferenciarse
 
-Sé específico citando ejemplos del texto y de lo que veas en las imágenes. Evita generalidades vacías.`;
+Sé específico citando ejemplos reales. Usa **negritas** para los términos clave y listas con viñetas donde ayude a la lectura. Evita generalidades vacías.
+
+Al final de TODO el análisis, en un bloque separado, agrega EXACTAMENTE este formato (JSON válido dentro de un bloque \`\`\`json) proponiendo UN concepto de anuncio nuevo y diferenciado basado en tus hallazgos — esto se usará para construir una vista previa visual real, así que sé concreto y usa colores hexadecimales reales que hayas visto o que tengan sentido para diferenciarse de la competencia:
+
+\`\`\`json
+{
+  "colors": [{"hex": "#XXXXXX", "name": "nombre corto"}, {"hex": "#XXXXXX", "name": "nombre corto"}, {"hex": "#XXXXXX", "name": "nombre corto"}],
+  "concept_headline": "máximo 8 palabras, en español",
+  "concept_subheadline": "máximo 14 palabras, en español",
+  "concept_cta": "texto de botón, máximo 3 palabras",
+  "concept_style_notes": "una frase describiendo el estilo visual recomendado y por qué se diferencia de la competencia"
+}
+\`\`\``;
 
   const parts = [{ text: promptIntro }];
   imageResults.forEach(img => {
@@ -130,5 +149,12 @@ Sé específico citando ejemplos del texto y de lo que veas en las imágenes. Ev
     return;
   }
 
-  res.status(200).json({ text: result.text, imagesAnalyzed: imageResults.filter(Boolean).length, modelUsed: result.modelUsed });
+  const { narrative, concept } = extractConceptJson(result.text);
+
+  res.status(200).json({
+    text: narrative,
+    concept,
+    imagesAnalyzed: imageResults.filter(Boolean).length,
+    modelUsed: result.modelUsed
+  });
 };
