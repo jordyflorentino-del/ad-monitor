@@ -1,5 +1,10 @@
 const MAX_TEXT_ADS = 30;
-const MAX_IMAGE_ADS = 8; // keep image count low to stay within free-tier limits and function timeout
+const MAX_IMAGE_ADS = 8;
+
+// Try these in order — if one is overloaded (503) or rate-limited (429), fall back to the next.
+const MODEL_CHAIN = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function fetchImageAsInlineData(url) {
   try {
@@ -12,6 +17,52 @@ async function fetchImageAsInlineData(url) {
   } catch (e) {
     return null;
   }
+}
+
+async function callGeminiWithFallback(apiKey, parts) {
+  let lastMessage = 'No se pudo contactar a ningún modelo.';
+
+  for (const model of MODEL_CHAIN) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts }] })
+          }
+        );
+        const data = await response.json();
+
+        if (response.ok) {
+          const text = data.candidates &&
+            data.candidates[0] &&
+            data.candidates[0].content &&
+            data.candidates[0].content.parts &&
+            data.candidates[0].content.parts[0] &&
+            data.candidates[0].content.parts[0].text;
+          return { text: text || 'Sin respuesta del modelo.', modelUsed: model };
+        }
+
+        lastMessage = (data.error && data.error.message) || `Error ${response.status} en ${model}`;
+
+        // Overloaded or rate-limited: worth retrying / falling back. Anything else is likely a real error (bad key, bad request) — stop immediately.
+        if (response.status === 503 || response.status === 429) {
+          await sleep(1200 * (attempt + 1));
+          continue;
+        }
+        return { error: lastMessage };
+
+      } catch (e) {
+        lastMessage = e.message;
+        await sleep(800);
+      }
+    }
+    // exhausted retries on this model, move to the next one in the chain
+  }
+
+  return { error: `Todos los modelos de Gemini están saturados ahora mismo (${lastMessage}). Intenta de nuevo en un par de minutos.` };
 }
 
 module.exports = async function handler(req, res) {
@@ -43,9 +94,7 @@ module.exports = async function handler(req, res) {
     plataformas: ad.targeting && ad.targeting.platform
   }));
 
-  // Pick a handful of ads that actually have a creative image/thumbnail to send visually
   const adsWithImages = ads.filter(ad => ad.media && ad.media.media_urls && ad.media.media_urls[0]).slice(0, MAX_IMAGE_ADS);
-
   const imageResults = await Promise.all(
     adsWithImages.map(ad => fetchImageAsInlineData(ad.media.media_urls[0]))
   );
@@ -74,33 +123,12 @@ Sé específico citando ejemplos del texto y de lo que veas en las imágenes. Ev
     if (img) parts.push({ inlineData: img });
   });
 
-  try {
-    const model = 'gemini-2.5-flash';
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts }] })
-      }
-    );
+  const result = await callGeminiWithFallback(apiKey, parts);
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      res.status(response.status).json({ error: data.error ? data.error.message : 'Error de la API de Gemini.' });
-      return;
-    }
-
-    const text = data.candidates &&
-      data.candidates[0] &&
-      data.candidates[0].content &&
-      data.candidates[0].content.parts &&
-      data.candidates[0].content.parts[0] &&
-      data.candidates[0].content.parts[0].text;
-
-    res.status(200).json({ text: text || 'Sin respuesta del modelo.', imagesAnalyzed: imageResults.filter(Boolean).length });
-  } catch (err) {
-    res.status(500).json({ error: `No se pudo completar el análisis: ${err.message}` });
+  if (result.error) {
+    res.status(503).json({ error: result.error });
+    return;
   }
+
+  res.status(200).json({ text: result.text, imagesAnalyzed: imageResults.filter(Boolean).length, modelUsed: result.modelUsed });
 };
