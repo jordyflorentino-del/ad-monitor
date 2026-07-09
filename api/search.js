@@ -1,4 +1,4 @@
-const ACTOR_ID = 'g1aC9GnyEMiNjQFQX'; // scraperhive/meta-ads-library-scraper
+const ACTOR_ID = 'UXUXVoXhHyK7lLnQi'; // leadsbrary/facebook-ads-library-scraper
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -14,21 +14,23 @@ module.exports = async function handler(req, res) {
 
   const { term, pageUrl, country, status, maxAds } = req.body || {};
 
-  const safeCountry = country || 'MX';
-  const safeStatus = status || 'active';
+  const safeCountry = country || 'ALL';
   const safeMax = Math.min(parseInt(maxAds, 10) || 50, 500);
+  // This actor expects uppercase status values
+  const statusMap = { active: 'ACTIVE', inactive: 'INACTIVE', all: 'ALL' };
+  const safeStatus = statusMap[status] || 'ACTIVE';
 
   let seedUrl;
 
   if (pageUrl && pageUrl.trim()) {
-    // Exact-page mode: user pasted a specific Facebook Page URL to avoid ambiguity between similarly-named companies.
+    // This actor accepts a raw Facebook page URL directly — no need to build an Ad Library query.
     let cleanUrl = pageUrl.trim();
     if (!/^https?:\/\//i.test(cleanUrl)) {
       cleanUrl = `https://www.facebook.com/${cleanUrl.replace(/^\/+/, '')}`;
     }
     seedUrl = cleanUrl;
   } else if (term && term.trim()) {
-    seedUrl = `https://www.facebook.com/ads/library/?active_status=${safeStatus}&ad_type=all&country=${safeCountry}&q=${encodeURIComponent(term)}&search_type=keyword_unordered&media_type=all`;
+    seedUrl = `https://www.facebook.com/ads/library/?active_status=${safeStatus.toLowerCase()}&ad_type=all&country=${safeCountry}&q=${encodeURIComponent(term)}&search_type=keyword_unordered&media_type=all`;
   } else {
     res.status(400).json({ error: 'Escribe una palabra clave o pega la URL exacta de la página.' });
     return;
@@ -40,7 +42,14 @@ module.exports = async function handler(req, res) {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: [seedUrl], status: safeStatus, maxAds: safeMax })
+        body: JSON.stringify({
+          startUrls: [{ url: seedUrl }],
+          resultsLimit: safeMax,
+          activeStatus: safeStatus,
+          includeAboutPage: true,
+          isDetailsPerAd: true,
+          countryFallback: safeCountry
+        })
       }
     );
 
