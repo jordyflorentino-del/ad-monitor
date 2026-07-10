@@ -181,6 +181,11 @@
   }
   .ad-status-badge.active{background:rgba(61,220,132,0.9);color:#06210F;}
   .ad-status-badge.inactive{background:rgba(20,20,20,0.55);color:#fff;}
+  .winner-badge{
+    position:absolute;bottom:10px;left:10px;display:flex;align-items:center;gap:5px;
+    background:rgba(10,13,20,0.78);backdrop-filter:blur(4px);border:1px solid rgba(255,159,28,0.5);
+    color:#FFC168;font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:20px;
+  }
   .ad-card-body{padding:14px;}
   .ad-card-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
   .ad-logo{
@@ -192,10 +197,28 @@
   .ad-meta-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-faint);}
   .ad-meta-left{display:flex;gap:6px;align-items:center;}
   .ad-link{color:var(--violet);text-decoration:none;font-size:11.5px;font-weight:600;}
+  .ad-score-row{display:none;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:9px;border-top:1px solid var(--border);}
+  .ad-score-row.show{display:flex;}
+  .ad-score-chip{font-size:11px;color:var(--text-faint);}
+  .ad-score-chip b{color:var(--text-soft);font-weight:700;}
+  .ad-score-chip.low b{color:var(--amber);}
   .empty-state{
     grid-column:1/-1;text-align:center;padding:50px 20px;color:var(--text-soft);font-size:13.5px;
     border:1px dashed var(--border);border-radius:14px;
   }
+
+  /* ---- overall score panel ---- */
+  .score-panel{background:var(--bg-elevated);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;}
+  .score-panel-head{display:flex;align-items:baseline;gap:8px;margin-bottom:18px;}
+  .score-panel-title{font-size:10.5px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--amber);}
+  .score-big{font-family:'Poppins',sans-serif;font-weight:800;font-size:36px;color:var(--text);}
+  .score-big .max{font-family:'Inter',sans-serif;font-weight:600;font-size:14px;color:var(--text-faint);}
+  .score-metric-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .score-metric-row:last-child{margin-bottom:0;}
+  .score-metric-label{font-size:12px;color:var(--text-soft);width:150px;flex-shrink:0;}
+  .score-metric-bar{flex:1;height:6px;border-radius:100px;background:var(--border);overflow:hidden;}
+  .score-metric-fill{height:100%;border-radius:100px;background:linear-gradient(90deg, var(--violet), var(--amber));}
+  .score-metric-value{font-size:12px;font-weight:700;color:var(--text);width:26px;text-align:right;flex-shrink:0;}
 
   /* ---- AI panel ---- */
   .ai-panel{background:var(--card-bg);border:1px solid var(--border);border-radius:16px;padding:22px;}
@@ -384,6 +407,7 @@
       </div>
 
       <div id="aiResults" style="display:none;">
+        <div id="overallScoreWrap"></div>
         <div id="insightGridWrap"></div>
         <div class="tabs" id="tabBar"></div>
         <div id="tabPanels"></div>
@@ -470,6 +494,14 @@ async function runSearch(){
   searchBtn.disabled = false;
 }
 
+function daysActiveFor(ad){
+  if(!ad.isActive || !ad.startDateFormatted) return null;
+  const start = new Date(ad.startDateFormatted);
+  if(isNaN(start)) return null;
+  const diffMs = Date.now() - start.getTime();
+  return Math.max(0, Math.floor(diffMs / 86400000));
+}
+
 function renderResults(){
   const cards = document.getElementById('cards');
   document.getElementById('countSub').textContent = `${currentAds.length} anuncios encontrados · ${lastQueryLabel}`;
@@ -480,7 +512,14 @@ function renderResults(){
     return;
   }
 
-  currentAds.forEach(ad => {
+  // Detector de anuncios ganadores: el/los anuncio(s) activo(s) con más días corriendo,
+  // por encima de un umbral mínimo — no requiere IA, es puro cálculo de fechas.
+  const WINNER_MIN_DAYS = 60;
+  let maxDays = 0;
+  currentAds.forEach(ad => { const d = daysActiveFor(ad); if(d !== null && d > maxDays) maxDays = d; });
+  const winnerThreshold = maxDays >= WINNER_MIN_DAYS ? maxDays : null;
+
+  currentAds.forEach((ad, adIndex) => {
     const advertiser = ad['pageInfo.page.name'] || (ad.pageInfo && ad.pageInfo.page && ad.pageInfo.page.name) || 'Anunciante desconocido';
     const title = ad['snapshot.title'] || ad.headline || '';
     const adText = ad.adText || (ad.adCreativeBodies && ad.adCreativeBodies[0]) || '';
@@ -489,15 +528,20 @@ function renderResults(){
     const thumb = ad.snapshotImageUrl || ad.imageUrl || (ad.images && ad.images[0]) || null;
     const snapUrl = ad.adLibraryURL || (ad.adArchiveID ? `https://www.facebook.com/ads/library/?id=${ad.adArchiveID}` : null);
     const grad = gradientFor(advertiser);
+    const adId = ad.adArchiveID || `idx_${adIndex}`;
+    const daysActive = daysActiveFor(ad);
+    const isWinner = winnerThreshold !== null && daysActive === winnerThreshold;
 
     const card = document.createElement('div');
     card.className = 'ad-card';
+    card.dataset.adId = adId;
     card.innerHTML = `
       <div class="ad-thumb" style="${thumb ? `background-image:url('${thumb}')` : `background-image:${grad}`}">
         <div class="ad-thumb-icon">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><rect x="2" y="2" width="20" height="20" rx="5" fill="none" stroke="#fff" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="2"/></svg>
         </div>
         <span class="ad-status-badge ${isActive ? 'active' : 'inactive'}">${isActive ? 'Activo' : 'Pausado'}</span>
+        ${isWinner ? `<span class="winner-badge">🏆 ${daysActive} días activo</span>` : ''}
       </div>
       <div class="ad-card-body">
         <div class="ad-card-top">
@@ -510,6 +554,7 @@ function renderResults(){
           <div class="ad-meta-left">${fmtDate(ad.startDateFormatted)} · ${esc(platforms[0] || '—')}</div>
           ${snapUrl ? `<a class="ad-link" href="${snapUrl}" target="_blank" rel="noopener">Ver original ↗</a>` : ''}
         </div>
+        <div class="ad-score-row" id="score-${esc(adId)}"></div>
       </div>
     `;
     cards.appendChild(card);
@@ -517,6 +562,59 @@ function renderResults(){
 }
 
 /* ---- AI analysis ---- */
+function renderOverallScore(overallScore){
+  if(!overallScore || typeof overallScore.total !== 'number') return '';
+  const metrics = [
+    { key: 'competitividad', label: 'Competitividad' },
+    { key: 'creatividad', label: 'Creatividad' },
+    { key: 'claridad_mensaje', label: 'Claridad del mensaje' },
+    { key: 'fuerza_cta', label: 'Fuerza del CTA' }
+  ];
+  const rows = metrics.map(m => {
+    const v = overallScore[m.key];
+    if(typeof v !== 'number') return '';
+    return `
+      <div class="score-metric-row">
+        <span class="score-metric-label">${m.label}</span>
+        <div class="score-metric-bar"><div class="score-metric-fill" style="width:${Math.max(0,Math.min(100,v))}%"></div></div>
+        <span class="score-metric-value">${v}</span>
+      </div>
+    `;
+  }).join('');
+  return `
+    <div class="score-panel">
+      <div class="score-panel-head">
+        <span class="score-panel-title">Score general</span>
+      </div>
+      <div class="score-big" style="margin-bottom:16px;">${overallScore.total}<span class="max"> /100</span></div>
+      ${rows}
+    </div>
+  `;
+}
+
+function applyAdScores(adScores){
+  if(!Array.isArray(adScores)) return;
+  const fields = [
+    { key: 'gancho', label: 'Gancho' },
+    { key: 'oferta', label: 'Oferta' },
+    { key: 'cta', label: 'CTA' },
+    { key: 'urgencia', label: 'Urgencia' },
+    { key: 'creatividad', label: 'Creatividad' },
+    { key: 'prueba_social', label: 'Prueba social' }
+  ];
+  adScores.forEach(score => {
+    if(!score || !score.id) return;
+    const container = document.getElementById('score-' + CSS.escape(String(score.id)));
+    if(!container) return;
+    const chips = fields
+      .filter(f => typeof score[f.key] === 'number')
+      .map(f => `<span class="ad-score-chip${score[f.key] <= 5 ? ' low' : ''}">${f.label} <b>${score[f.key]}</b></span>`)
+      .join('');
+    container.innerHTML = chips;
+    container.classList.add('show');
+  });
+}
+
 function renderInsightGrid(insights){
   if(!insights) return '';
 
@@ -631,7 +729,9 @@ async function analyzeAds(){
       tabBar.innerHTML = '';
       tabPanels.innerHTML = '';
 
+      document.getElementById('overallScoreWrap').innerHTML = renderOverallScore(data.overallScore);
       document.getElementById('insightGridWrap').innerHTML = renderInsightGrid(data.insights);
+      applyAdScores(data.adScores);
 
       sections.forEach((s, i) => {
         const btn = document.createElement('button');
