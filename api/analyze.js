@@ -20,13 +20,19 @@ async function fetchImageAsInlineData(url) {
 
 function extractStructuredJson(rawText) {
   const match = rawText.match(/```json\s*([\s\S]*?)```/i);
-  if (!match) return { narrative: rawText.trim(), concept: null, insights: null };
+  if (!match) return { narrative: rawText.trim(), concept: null, insights: null, overallScore: null, adScores: null };
   const narrative = rawText.replace(match[0], '').trim();
   try {
     const parsed = JSON.parse(match[1]);
-    return { narrative, concept: parsed.concept || null, insights: parsed.insights || null };
+    return {
+      narrative,
+      concept: parsed.concept || null,
+      insights: parsed.insights || null,
+      overallScore: parsed.overall_score || null,
+      adScores: Array.isArray(parsed.ad_scores) ? parsed.ad_scores : null
+    };
   } catch (e) {
-    return { narrative, concept: null, insights: null };
+    return { narrative, concept: null, insights: null, overallScore: null, adScores: null };
   }
 }
 
@@ -90,7 +96,8 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const sample = ads.slice(0, MAX_TEXT_ADS).map(ad => ({
+  const sample = ads.slice(0, MAX_TEXT_ADS).map((ad, i) => ({
+    id: ad.adArchiveID || `idx_${i}`,
     anunciante: ad['pageInfo.page.name'] || (ad.pageInfo && ad.pageInfo.page && ad.pageInfo.page.name),
     texto: ad.adText || (ad.adCreativeBodies && ad.adCreativeBodies[0]),
     titulo: ad['snapshot.title'],
@@ -129,8 +136,20 @@ Al final de TODO el análisis, en un bloque separado, agrega EXACTAMENTE este fo
 
 REGLA CRÍTICA para "insights": los porcentajes deben ser FRECUENCIAS REALES calculadas sobre los ${sample.length} anuncios que te compartí — por ejemplo, "de los anuncios analizados, qué % menciona transformación/beneficio X en su texto". NUNCA inventes métricas de rendimiento (CTR, engagement, conversiones) — eso no existe en estos datos y no debes fabricarlo. Para "oportunidades", los valores son sugerencias cualitativas tuyas, no datos medidos — represéntalos como una recomendación con un signo "+" solo si tiene sentido como estimación aproximada, y dejamos claro en la interfaz que es inferencia.
 
+REGLA CRÍTICA para "overall_score" y "ad_scores": estos son una EVALUACIÓN CUALITATIVA DE CALIDAD CREATIVA hecha por ti como director creativo experto — NO son métricas de rendimiento real (no existe CTR, conversión ni gasto en estos datos). Básate en criterios de copywriting y diseño publicitario observables en el texto/imagen (claridad del mensaje, fuerza del gancho, presencia de oferta concreta, fuerza del CTA, señales de urgencia, presencia de prueba social). "overall_score" es tu evaluación holística del conjunto de anuncios analizados. "ad_scores" debe incluir EXACTAMENTE un objeto por cada anuncio de la muestra (usa el campo "id" tal cual te lo compartí, sin modificarlo) — si no puedes evaluar algún criterio por falta de información en ese anuncio específico, usa 5 como valor neutro en vez de inventar.
+
 \`\`\`json
 {
+  "overall_score": {
+    "total": 84,
+    "competitividad": 85,
+    "creatividad": 82,
+    "claridad_mensaje": 90,
+    "fuerza_cta": 74
+  },
+  "ad_scores": [
+    {"id": "el id exacto del anuncio", "gancho": 8, "creatividad": 7, "oferta": 9, "cta": 6, "urgencia": 4, "prueba_social": 8}
+  ],
   "insights": {
     "patrones_mensaje": {
       "headline": "una oración con un % real basado en frecuencia de mensaje en el texto de los anuncios",
@@ -175,12 +194,14 @@ REGLA CRÍTICA para "insights": los porcentajes deben ser FRECUENCIAS REALES cal
     return;
   }
 
-  const { narrative, concept, insights } = extractStructuredJson(result.text);
+  const { narrative, concept, insights, overallScore, adScores } = extractStructuredJson(result.text);
 
   res.status(200).json({
     text: narrative,
     concept,
     insights,
+    overallScore,
+    adScores,
     imagesAnalyzed: imageResults.filter(Boolean).length,
     modelUsed: result.modelUsed
   });
