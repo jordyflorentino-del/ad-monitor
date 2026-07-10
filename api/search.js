@@ -1,4 +1,47 @@
-const ACTOR_ID = 'UXUXVoXhHyK7lLnQi'; // leadsbrary/facebook-ads-library-scraper
+const ACTOR_SLUG = 'whoareyouanas~meta-ad-scraper'; // whoareyouanas/meta-ad-scraper — 4.9★, 2.2K usuarios, trae images[]/videos[] reales
+
+// Convierte "1/15/2025" (formato del actor) a ISO, que es lo que el resto de la app espera.
+function toIsoDate(mdy) {
+  if (!mdy) return null;
+  const parts = String(mdy).split('/');
+  if (parts.length !== 3) return null;
+  const [m, d, y] = parts.map(n => parseInt(n, 10));
+  if (!m || !d || !y) return null;
+  return new Date(Date.UTC(y, m - 1, d)).toISOString();
+}
+
+// Extrae el slug/nombre de página de una URL de Facebook para usarlo como búsqueda,
+// ya que este actor no acepta una URL de página cruda como identificador directo.
+function extractPageSlug(pageUrl) {
+  try {
+    const clean = pageUrl.trim().replace(/^https?:\/\/(www\.)?facebook\.com\//i, '');
+    return decodeURIComponent(clean.split('?')[0].split('/')[0]).replace(/[-_.]/g, ' ');
+  } catch (e) {
+    return pageUrl;
+  }
+}
+
+// Traduce el output del actor nuevo al mismo shape que ya consumen index.html y analyze.js
+// (pageInfo.page.name, adText, startDateFormatted, snapshotImageUrl, adArchiveID, isActive, publisherPlatform...)
+// para no tener que tocar el resto de la app.
+function normalizeAd(ad) {
+  const image = ad.images && ad.images[0] && ad.images[0].url;
+  const video = ad.videos && ad.videos[0] && ad.videos[0].url;
+  return {
+    adArchiveID: ad.libraryID,
+    'pageInfo.page.name': ad.brand,
+    adText: ad.body || '',
+    'snapshot.title': ad.linkTitle || '',
+    startDateFormatted: toIsoDate(ad.startDate),
+    endDateFormatted: null,
+    isActive: !!ad.active,
+    publisherPlatform: ad.platforms || [],
+    snapshotImageUrl: image || null,
+    imageUrl: image || null,
+    videoUrl: video || null, // no usado en la UI todavía, disponible para una futura vista previa de video
+    adLibraryURL: `https://www.facebook.com/ads/library/?id=${ad.libraryID}`
+  };
+}
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -14,42 +57,34 @@ module.exports = async function handler(req, res) {
 
   const { term, pageUrl, country, status, maxAds } = req.body || {};
 
-  const safeCountry = country || 'ALL';
   const safeMax = Math.min(parseInt(maxAds, 10) || 50, 500);
-  // This actor expects uppercase status values
-  const statusMap = { active: 'ACTIVE', inactive: 'INACTIVE', all: 'ALL' };
-  const safeStatus = statusMap[status] || 'ACTIVE';
+  const statusMap = { active: 'active', inactive: 'inactive', all: 'all' };
+  const safeStatus = statusMap[status] || 'active';
 
-  let seedUrl;
+  const input = { activeStatus: safeStatus };
+
+  if (country && country !== 'ALL') input.country = country;
 
   if (pageUrl && pageUrl.trim()) {
-    // This actor accepts a raw Facebook page URL directly — no need to build an Ad Library query.
-    let cleanUrl = pageUrl.trim();
-    if (!/^https?:\/\//i.test(cleanUrl)) {
-      cleanUrl = `https://www.facebook.com/${cleanUrl.replace(/^\/+/, '')}`;
-    }
-    seedUrl = cleanUrl;
+    input.searchQuery = extractPageSlug(pageUrl);
   } else if (term && term.trim()) {
-    seedUrl = `https://www.facebook.com/ads/library/?active_status=${safeStatus.toLowerCase()}&ad_type=all&country=${safeCountry}&q=${encodeURIComponent(term)}&search_type=keyword_unordered&media_type=all`;
+    input.searchQuery = term.trim();
   } else {
     res.status(400).json({ error: 'Escribe una palabra clave o pega la URL exacta de la página.' });
     return;
   }
 
+  // Proxy residencial de Apify — necesario para tener cobertura completa de resultados.
+  // La contraseña del proxy de Apify es el mismo token de tu cuenta.
+  input.proxyUrl = `http://groups-RESIDENTIAL:${token}@proxy.apify.com:8000`;
+
   try {
     const apifyRes = await fetch(
-      `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}`,
+      `https://api.apify.com/v2/acts/${ACTOR_SLUG}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          startUrls: [{ url: seedUrl }],
-          resultsLimit: safeMax,
-          activeStatus: safeStatus,
-          includeAboutPage: true,
-          isDetailsPerAd: true,
-          countryFallback: safeCountry
-        })
+        body: JSON.stringify(input)
       }
     );
 
@@ -60,7 +95,13 @@ module.exports = async function handler(req, res) {
     }
 
     const data = await apifyRes.json();
-    res.status(200).json({ ads: Array.isArray(data) ? data : [] });
+    const rawAds = Array.isArray(data) ? data : [];
+    // Este actor no expone un límite de resultados en su input — lo topamos aquí para
+    // controlar el costo y el tamaño de la respuesta. Ojo: Apify puede seguir cobrando
+    // por todo lo que el actor haya scrapeado antes de este corte, no solo lo que regresamos.
+    const ads = rawAds.slice(0, safeMax).map(normalizeAd);
+
+    res.status(200).json({ ads });
   } catch (err) {
     res.status(500).json({ error: `No se pudo conectar con Apify: ${err.message}` });
   }
