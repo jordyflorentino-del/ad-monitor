@@ -5,6 +5,15 @@
     },
     "api/search.js": {
       "maxDuration": 60
+    },
+    "api/social-search.js": {
+      "maxDuration": 60
+    },
+    "api/social-analyze.js": {
+      "maxDuration": 60
+    },
+    "api/cron-social-snapshot.js": {
+      "maxDuration": 60
     }
   }
 }
