@@ -307,14 +307,14 @@
 <div class="layout">
   <aside class="sidebar">
     <div>
-      <div class="side-item active">
+      <div class="side-item active" id="navResumen" onclick="switchView('ads', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
         Resumen
       </div>
     </div>
     <div>
       <div class="side-section-label">Monitoreo</div>
-      <div class="side-item active">
+      <div class="side-item active" id="navAnuncios" onclick="switchView('ads', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>
         Anuncios
       </div>
@@ -328,10 +328,17 @@
       </div>
     </div>
     <div>
+      <div class="side-section-label">Redes orgánicas</div>
+      <div class="side-item active" id="navPerfilCreador" onclick="switchView('social', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+        Perfil de creador<span class="tag-new">Nuevo</span>
+      </div>
+    </div>
+    <div>
       <div class="side-section-label">Análisis</div>
-      <div class="side-item active">
+      <div class="side-item active" id="navInsights" onclick="switchView('ads', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l1.5 5L19 8l-5.5 1L12 14l-1.5-5L5 8l5.5-1z"/></svg>
-        Insights IA<span class="tag-new">Nuevo</span>
+        Insights IA
       </div>
       <div class="side-item disabled">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20V10M10 20V4M17 20v-7"/></svg>
@@ -349,6 +356,7 @@
   </aside>
 
   <main class="main">
+  <div id="view-ads">
     <div class="page-header">
       <div>
         <h1 class="page-title">Anuncios monitorizados</h1>
@@ -413,6 +421,59 @@
         <div id="tabPanels"></div>
       </div>
     </div>
+  </div>
+
+  <div id="view-social" style="display:none;">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Perfil de creador</h1>
+        <div class="page-sub" id="socialCountSub">Analiza el crecimiento y desempeño orgánico de un artista o marca en Instagram, TikTok y Facebook.</div>
+      </div>
+    </div>
+
+    <div class="pageurl-row">
+      <label for="socialLabel">Nombre a mostrar (opcional — para identificar este perfil en el historial)</label>
+      <input type="text" id="socialLabel" class="search-input" style="width:100%;" placeholder="ej. Heidy Infante">
+    </div>
+
+    <div class="toolbar" style="flex-wrap:wrap;">
+      <input type="text" id="socialInstagram" class="search-input" placeholder="Usuario de Instagram (sin @)">
+      <input type="text" id="socialTiktok" class="search-input" placeholder="Usuario de TikTok (sin @)">
+      <input type="text" id="socialFacebook" class="search-input" placeholder="URL o usuario de Facebook">
+      <button class="btn-primary" id="socialSearchBtn" onclick="runSocialSearch()">Analizar redes</button>
+    </div>
+    <div class="status-line" id="socialStatusLine"></div>
+
+    <div id="socialProfilesWrap" class="cards-grid" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr));"></div>
+
+    <div id="socialGrowthWrap"></div>
+
+    <div id="socialPostsWrap" class="cards-grid" style="margin-top:8px;"></div>
+
+    <div class="ai-panel" style="margin-top:8px;">
+      <div class="ai-panel-head">
+        <div>
+          <div class="ai-panel-title">Análisis con IA <span class="beta-tag">BETA</span></div>
+          <div class="ai-panel-sub">Analiza patrones de contenido, consistencia de marca y detecta qué publicaciones están rindiendo mejor.</div>
+        </div>
+        <button class="btn-primary" id="socialAnalyzeBtn" onclick="analyzeSocial()" disabled>Analizar con IA</button>
+      </div>
+
+      <div id="socialAiEmpty" class="ai-empty">
+        <svg class="sparkle-icon" viewBox="0 0 64 64" fill="none">
+          <path d="M32 4 L37 27 L60 32 L37 37 L32 60 L27 37 L4 32 L27 27 Z" fill="url(#sparkGrad)"/>
+        </svg>
+        <div class="ai-empty-text">Busca un perfil y presiona "Analizar con IA" para ver qué contenido funciona mejor, consistencia de marca y recomendaciones de cadencia de publicación.</div>
+      </div>
+
+      <div id="socialAiResults" style="display:none;">
+        <div id="socialOverallScoreWrap"></div>
+        <div id="socialInsightGridWrap"></div>
+        <div id="socialCadenceWrap"></div>
+        <div class="tab-content" id="socialNarrativeWrap"></div>
+      </div>
+    </div>
+  </div>
   </main>
 </div>
 
@@ -764,6 +825,283 @@ async function analyzeAds(){
 }
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js">
+// ================= Perfil de creador (Scrape Creators) =================
+
+const PLATFORM_META = {
+  instagram: { label: 'Instagram', color: '#E1306C', grad: 'linear-gradient(135deg,#FEDA75,#D62976,#962FBF)' },
+  tiktok:    { label: 'TikTok',    color: '#25F4EE', grad: 'linear-gradient(135deg,#25F4EE,#010101,#FE2C55)' },
+  facebook:  { label: 'Facebook',  color: '#1877F2', grad: 'linear-gradient(135deg,#1877F2,#0A54B8)' }
+};
+
+let currentSocialProfiles = [];
+
+function switchView(view, el) {
+  document.getElementById('view-ads').style.display = view === 'ads' ? '' : 'none';
+  document.getElementById('view-social').style.display = view === 'social' ? '' : 'none';
+  ['navResumen', 'navAnuncios', 'navInsights', 'navPerfilCreador'].forEach(id => {
+    document.getElementById(id).classList.remove('active');
+  });
+  if (el) el.classList.add('active');
+  else if (view === 'social') document.getElementById('navPerfilCreador').classList.add('active');
+  else document.getElementById('navAnuncios').classList.add('active');
+}
+
+function fmtNum(n) {
+  if (n === null || n === undefined) return '—';
+  if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  return String(n);
+}
+
+function fmtDateShort(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+}
+
+async function runSocialSearch() {
+  const instagram = document.getElementById('socialInstagram').value.trim();
+  const tiktok = document.getElementById('socialTiktok').value.trim();
+  const facebook = document.getElementById('socialFacebook').value.trim();
+  const label = document.getElementById('socialLabel').value.trim();
+  const statusLine = document.getElementById('socialStatusLine');
+  const btn = document.getElementById('socialSearchBtn');
+
+  if (!instagram && !tiktok && !facebook) {
+    statusLine.textContent = 'Escribe al menos un usuario de Instagram, TikTok o Facebook.';
+    statusLine.className = 'status-line err';
+    return;
+  }
+
+  btn.disabled = true;
+  statusLine.className = 'status-line';
+  statusLine.textContent = 'Consultando perfiles...';
+  document.getElementById('socialProfilesWrap').innerHTML = '';
+  document.getElementById('socialPostsWrap').innerHTML = '';
+  document.getElementById('socialGrowthWrap').innerHTML = '';
+  document.getElementById('socialAnalyzeBtn').disabled = true;
+
+  try {
+    const res = await fetch('/api/social-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ instagram, tiktok, facebook, label })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al consultar los perfiles.');
+
+    currentSocialProfiles = data.profiles || [];
+    renderSocialProfiles(currentSocialProfiles);
+    renderSocialPosts(currentSocialProfiles);
+    loadGrowthHistory(currentSocialProfiles);
+
+    let msg = `${currentSocialProfiles.length} perfil(es) obtenido(s)`;
+    if (data.saved) msg += ' · snapshot guardado para seguimiento de crecimiento';
+    if (data.errors && data.errors.length) msg += ` · ${data.errors.length} error(es): ` + data.errors.map(e => `${e.platform}: ${e.error}`).join('; ');
+    statusLine.textContent = msg;
+    document.getElementById('socialCountSub').textContent = currentSocialProfiles.map(p => `${PLATFORM_META[p.platform].label} @${p.handle}`).join(' · ');
+    document.getElementById('socialAnalyzeBtn').disabled = currentSocialProfiles.length === 0;
+  } catch (err) {
+    statusLine.className = 'status-line err';
+    statusLine.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderSocialProfiles(profiles) {
+  const wrap = document.getElementById('socialProfilesWrap');
+  if (!profiles.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = profiles.map(p => {
+    const meta = PLATFORM_META[p.platform];
+    return `
+    <div class="ad-card">
+      <div class="ad-card-body">
+        <div class="ad-card-top">
+          ${p.avatar
+            ? `<img src="${esc(p.avatar)}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none'">`
+            : `<div class="ad-logo" style="width:40px;height:40px;font-size:14px;background:${meta.grad};">${initialsFor(p.name)}</div>`
+          }
+          <div style="min-width:0;">
+            <div class="ad-advertiser" style="display:flex;align-items:center;gap:6px;">
+              ${esc(p.name)} ${p.isVerified ? '✓' : ''}
+            </div>
+            <div style="font-size:11.5px;color:var(--text-faint);">${meta.label} · @${esc(p.handle)}</div>
+          </div>
+        </div>
+        <div class="ad-text" style="max-height:none;">${esc(p.bio || '')}</div>
+        <div class="ad-meta-row" style="margin-top:10px;">
+          <div><b style="color:var(--text);font-size:14px;">${fmtNum(p.followers)}</b><br><span style="font-size:10.5px;">seguidores</span></div>
+          <div><b style="color:var(--text);font-size:14px;">${fmtNum(p.postsCount)}</b><br><span style="font-size:10.5px;">publicaciones</span></div>
+          ${p.totalLikes ? `<div><b style="color:var(--text);font-size:14px;">${fmtNum(p.totalLikes)}</b><br><span style="font-size:10.5px;">likes totales</span></div>` : ''}
+        </div>
+        <a href="${esc(p.profileUrl)}" target="_blank" class="ad-link" style="display:inline-block;margin-top:10px;">Ver perfil →</a>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderSocialPosts(profiles) {
+  const wrap = document.getElementById('socialPostsWrap');
+  const allPosts = [];
+  profiles.forEach(p => (p.posts || []).forEach(post => allPosts.push({ ...post, platform: p.platform, handle: p.handle })));
+  if (!allPosts.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = allPosts.slice(0, 18).map(post => {
+    const meta = PLATFORM_META[post.platform];
+    return `
+    <div class="ad-card">
+      <div class="ad-thumb" style="${post.thumbnail ? `background-image:url('${esc(post.thumbnail)}')` : `background:${meta.grad}`}">
+        <div class="ad-thumb-icon" style="background:${meta.color};" title="${meta.label}"></div>
+      </div>
+      <div class="ad-card-body">
+        <div class="ad-text">${esc((post.caption || '').slice(0, 110))}${(post.caption || '').length > 110 ? '…' : ''}</div>
+        <div class="ad-meta-row">
+          <div class="ad-meta-left">
+            ${post.views !== null ? `<span>👁 ${fmtNum(post.views)}</span>` : ''}
+            <span>♥ ${fmtNum(post.likes)}</span>
+            <span>💬 ${fmtNum(post.comments)}</span>
+          </div>
+          <span>${fmtDateShort(post.publishedAt)}</span>
+        </div>
+        ${post.url ? `<a href="${esc(post.url)}" target="_blank" class="ad-link" style="display:inline-block;margin-top:8px;">Ver publicación →</a>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadGrowthHistory(profiles) {
+  const wrap = document.getElementById('socialGrowthWrap');
+  const results = await Promise.all(profiles.map(async p => {
+    try {
+      const res = await fetch(`/api/social-history?platform=${encodeURIComponent(p.platform)}&handle=${encodeURIComponent(p.handle)}`);
+      const data = await res.json();
+      return { profile: p, history: data.history || [], storageConfigured: data.storageConfigured };
+    } catch (e) {
+      return { profile: p, history: [], storageConfigured: false };
+    }
+  }));
+
+  if (results.length && results[0].storageConfigured === false) {
+    wrap.innerHTML = `<div class="status-line">El seguimiento histórico de crecimiento requiere conectar un KV Store en Vercel (variables KV_REST_API_URL / KV_REST_API_TOKEN).</div>`;
+    return;
+  }
+
+  const withHistory = results.filter(r => r.history.length >= 2);
+  if (!withHistory.length) {
+    wrap.innerHTML = `<div class="status-line">Aún no hay suficiente historial para mostrar la gráfica de crecimiento — vuelve a analizar este perfil en unos días (el snapshot de hoy ya quedó guardado).</div>`;
+    return;
+  }
+
+  wrap.innerHTML = `<div class="score-panel"><div class="score-panel-head"><div class="score-panel-title">CRECIMIENTO DE SEGUIDORES</div></div>` +
+    withHistory.map(r => renderSparklineRow(r.profile, r.history)).join('') + `</div>`;
+}
+
+function renderSparklineRow(profile, history) {
+  const meta = PLATFORM_META[profile.platform];
+  const values = history.map(h => h.followers || 0);
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = Math.max(max - min, 1);
+  const w = 240, h = 40, pad = 3;
+  const points = values.map((v, i) => {
+    const x = pad + (i / Math.max(values.length - 1, 1)) * (w - pad * 2);
+    const y = h - pad - ((v - min) / range) * (h - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const delta = values[values.length - 1] - values[0];
+  const deltaStr = delta > 0 ? `+${fmtNum(delta)}` : fmtNum(delta);
+  const deltaColor = delta >= 0 ? 'var(--green)' : 'var(--red)';
+  return `
+    <div class="score-metric-row" style="align-items:center;">
+      <div class="score-metric-label" style="width:170px;">${meta.label} @${esc(profile.handle)}</div>
+      <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${points}" fill="none" stroke="${meta.color}" stroke-width="2"/></svg>
+      <div style="font-size:12px;font-weight:700;color:${deltaColor};min-width:60px;text-align:right;">${deltaStr}</div>
+      <div style="font-size:11px;color:var(--text-faint);min-width:90px;text-align:right;">${history.length} snapshots</div>
+    </div>`;
+}
+
+async function analyzeSocial() {
+  if (!currentSocialProfiles.length) return;
+  const btn = document.getElementById('socialAnalyzeBtn');
+  btn.disabled = true;
+  btn.textContent = 'Analizando...';
+  document.getElementById('socialAiEmpty').style.display = 'none';
+  document.getElementById('socialAiResults').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/social-analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profiles: currentSocialProfiles })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al analizar con IA.');
+
+    document.getElementById('socialAiResults').style.display = '';
+    renderSocialOverallScore(data.overallScore);
+    renderSocialInsightGrid(data.insights);
+    renderSocialCadence(data.cadenceRecommendation);
+    document.getElementById('socialNarrativeWrap').innerHTML = (window.marked ? marked.parse(data.text || '') : `<p>${esc(data.text || '')}</p>`);
+  } catch (err) {
+    document.getElementById('socialAiEmpty').style.display = '';
+    document.getElementById('socialAiEmpty').querySelector('.ai-empty-text').textContent = err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Analizar con IA';
+  }
+}
+
+function renderSocialOverallScore(score) {
+  const wrap = document.getElementById('socialOverallScoreWrap');
+  if (!score) { wrap.innerHTML = ''; return; }
+  const metrics = Object.entries(score).filter(([k]) => k !== 'total');
+  const labelMap = {
+    consistencia_publicacion: 'Consistencia de publicación',
+    calidad_visual: 'Calidad visual',
+    engagement_relativo: 'Engagement relativo',
+    coherencia_de_marca: 'Coherencia de marca'
+  };
+  wrap.innerHTML = `
+    <div class="score-panel">
+      <div class="score-panel-head">
+        <div class="score-panel-title">SCORE GENERAL</div>
+      </div>
+      <div class="score-big" style="margin-bottom:16px;">${score.total ?? '—'}<span class="max">/100</span></div>
+      ${metrics.map(([k, v]) => `
+        <div class="score-metric-row">
+          <div class="score-metric-label">${labelMap[k] || k}</div>
+          <div class="score-metric-bar"><div class="score-metric-fill" style="width:${v}%;"></div></div>
+          <div class="score-metric-value">${v}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function renderSocialInsightGrid(insights) {
+  const wrap = document.getElementById('socialInsightGridWrap');
+  if (!insights) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `<div class="insight-grid">` + Object.entries(insights).map(([key, block]) => `
+    <div class="insight-card">
+      <div class="insight-label">${key.replace(/_/g, ' ')}</div>
+      <div class="insight-headline">${esc(block.headline || '')}</div>
+      ${(block.items || []).map(item => `
+        <div class="insight-item">
+          <span>${esc(item.label)}</span>
+          <span class="${item.pct !== undefined ? 'insight-pct' : 'insight-delta'}">${item.pct !== undefined ? item.pct + '%' : item.delta}</span>
+        </div>`).join('')}
+    </div>`).join('') + `</div>`;
+}
+
+function renderSocialCadence(cadence) {
+  const wrap = document.getElementById('socialCadenceWrap');
+  if (!cadence) { wrap.innerHTML = ''; return; }
+  const rows = ['instagram', 'tiktok', 'facebook'].filter(p => cadence[p]);
+  wrap.innerHTML = `
+    <div class="insight-card" style="margin-bottom:20px;">
+      <div class="insight-label">Cadencia de publicación sugerida</div>
+      <div class="insight-headline">${esc(cadence.headline || '')}</div>
+      ${rows.map(p => `<div class="insight-item"><span>${PLATFORM_META[p].label}</span><span class="insight-pct" style="font-size:11.5px;">${esc(cadence[p])}</span></div>`).join('')}
+    </div>`;
+}
+</script>
 </body>
 </html>
